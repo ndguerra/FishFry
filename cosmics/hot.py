@@ -7,7 +7,7 @@ import os
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-import ROOT as r
+#import ROOT as r
 
 from unpack_trigger import unpack_all, show_header, interpret_header
 from calibrate import Calibrator 

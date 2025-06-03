@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from unpack_trigger import unpack_all, get_trigger
 from calibrate import Calibrator
 
-import ROOT as r
+#import ROOT as r
 
 kernel5 = np.array([[0,0,0,0,0],
                     [0,0,1,0,0],

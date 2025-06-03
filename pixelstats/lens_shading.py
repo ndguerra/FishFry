@@ -140,31 +140,31 @@ def radial_correct(stat, n_points=20, plot=False, small=False):
         figsize = (3.5,2.6) if small else (7,5)
         plt.rc('font', size=16)
         plt.figure(figsize=figsize, tight_layout=True)
-        plt.plot(fit_x, fit_y, 'y-', label='Piecewise linear')
-        plt.plot(fit_x, fit_sec, 'r-', label=r'$\sec^4 \theta$')
-        plt.hist2d(R.flatten(), stat.flatten(), bins=(500,500), norm=LogNorm(), cmap='Purples')
+        plt.plot(fit_x*4, fit_y, 'y-', label='Piecewise linear')
+        plt.plot(fit_x*4, fit_sec, 'r-', label=r'$\sec^4 \theta$')
+        plt.hist2d(R.flatten()*4, stat.flatten(), bins=(500,500), norm=LogNorm(), cmap='Purples')
         #plt.title('Radial gain fit')
         plt.xlabel('Radius [pixels]')
         plt.ylabel('Gain')
         plt.legend()
 
-    return np.interp(R, fit_x, fit_y).reshape(sy, sx)
+    return np.interp(R, fit_x, fit_y).reshape(sy, sx), p
 
 
 def load(calib):    
     flens = np.load(os.path.join(calib, 'lens.npz'))
-    lens  = flens["lens"]
-    flens.close()
-    return lens
+    #lens  = flens["lens"]
+    #flens.close()
+    return flens
 
-def plot(lens, min_gain=None, max_gain=None, small=False):
+def plot(lens, min_gain=None, max_gain=None, small=False, K0 = None):
     print('plotting computed lens')
     figsize = (4, 2.6) if small else (8, 5)
     plt.figure(figsize=figsize, tight_layout=True)
-    plt.rc('font', size=16)
-    #plt.title('Smoothed gain')
+    plt.rc('font', size=16)        
     plt.imshow(lens, vmin=min_gain, vmax=max_gain, origin='lower',
             extent=[0, lens.shape[1]*4, 0, lens.shape[0]*4])
+    plt.title("$K(x,y)$")
     plt.xlabel('x [pixels]')
     plt.ylabel('y [pixels]')
     plt.colorbar()
@@ -197,8 +197,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.plot_only:
-        lens = load(args.calib) 
-        plot(1/lens.wgt, args.min_gain, args.max_gain, small=args.small)
+        lens = load(args.calib)
+        try:
+            K0 = lens['secant_parameters'][1]
+        except:
+            K0 = None
+        plot(1/lens['wgt'], args.min_gain, args.max_gain, small=args.small, K0 = K0)
         
     else: 
         lens, offset = downsample(args.calib, 
@@ -208,17 +212,25 @@ if __name__ == "__main__":
                 ds=args.down_sample)
   
         if args.radial:
-            lens = radial_correct(lens, plot=args.plot, small=args.small) 
-
+            lens, p = radial_correct(lens, plot=args.plot, small=args.small)
+        else:
+            p = None
+            
         if args.commit:
             
             filename = os.path.join(args.calib, 'lens.npz')
             print('computed lens shading committed to ', filename)
-            np.savez(filename, 
+            if args.radial:
+                np.savez(filename,
+                    down_sample=args.down_sample, 
+                    wgt=lens.min()/lens,
+                    secant_parameters = p)
+            else:
+                np.savez(filename, 
                     down_sample=args.down_sample, 
                     wgt=lens.min()/lens)
 
-        if args.plot: 
-            plot(lens, args.min_gain, args.max_gain, args.small)
+        if args.plot:
+            plot(lens, args.min_gain, args.max_gain, args.small, p[1])
 
 

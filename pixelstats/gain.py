@@ -91,6 +91,8 @@ def fit_line(x, y, xrange=(0,np.inf), yrange=(0,np.inf)):
     print('min: ', r2[np.logical_not(np.isnan(r2))].min())
     print('max: ', r2[np.logical_not(np.isnan(r2))].max())
     print()
+
+    print(np.where(np.isnan(a)))
     
     return a, b, r2, sw
 
@@ -146,7 +148,19 @@ def plot_hist(x, y, xlabel=None, ylabel=None, title=None):
     ymin = ys[idx]
     xmax = xs[-idx]
     ymax = ys[-idx]
+    '''
+    if np.isnan(xmax):
+        finite_x = np.delete(xs, np.where(np.isnan(xs)))
+        xmax = np.max(finite_x)
 
+    if np.isnan(ymax):
+        finite_y = np.delete(ys, np.where(np.isnan(ys)))
+        ymax = np.max(finite_y)
+
+    print(np.where(np.isnan(y)))
+    print(np.where(np.isnan(x)))
+    print(len(x))
+    '''
     _,_,_,im = plt.hist2d(x, y, bins=(200,200), 
             range=((xmin,xmax), (ymin, ymax)), 
             norm=LogNorm())
@@ -274,7 +288,7 @@ if __name__ == "__main__":
     if args.spatial_plots or args.plot_all:
         n_figs += 1
         plt.figure(n_figs, figsize=(4.1, 2.1), tight_layout=True)
-        plot_array(gain, title=None, cmap='plasma')
+        plot_array(gain, title='Gain', cmap='plasma')
          
         n_figs += 1
         plt.figure(n_figs, figsize=(4.8, 2.6), tight_layout=True)
@@ -282,7 +296,7 @@ if __name__ == "__main__":
        
         n_figs += 1
         plt.figure(n_figs, figsize=(4.1, 2.1), tight_layout=True)
-        plot_array(rsq, title=None, cmap='seismic') 
+        plot_array(rsq, title='$R^2$', cmap='seismic') 
 
         n_figs += 1
         plt.figure(n_figs, figsize=(4.8, 2.6), tight_layout=True)

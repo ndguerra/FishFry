@@ -2,6 +2,7 @@
 
 import sys
 import argparse
+import os
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -92,7 +93,27 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--raw', action='store_true', help='use unweighted values')
     parser.add_argument('--max',  type=int, default=1024,help="maximum pixel value in rate plot (x-axis).")
     parser.add_argument('-v', '--verbose', action='store_true', help='enable verbose output')
+    parser.add_argument('--electrons', action='store_true', help='plot in terms of number of electrons')
+    
     args = parser.parse_args()
+
+    if args.electrons:
+        # to convert pixel value to number of electrons
+        lens = np.load(os.path.join(args.calib, 'lens.npz'))
+        try:
+            parameters = lens["secant_parameters"]
+            factor = parameters[1]
+            xlabel = "Threshold ($e^{-}$)"
+        except:
+            print("no value of K0 found in lens.npz, use --radial option when finding lens shading")
+            print("making units of threshold pixel value")
+            factor = 1
+            xlabel = "Threshold (pixel value)"
+
+    else:
+        factor = 1
+        xlabel = "Threshold (pixel value)"
+        
 
     hist_tot = 0
     img_tot  = 0
@@ -120,7 +141,6 @@ if __name__ == "__main__":
         h, norm, th, ps = process_trig(filename, calibrator, args.verbose)
         if not thresholds is None and not np.all(thresholds == th):
             raise ValueError('Non-matching triggers found.')
-
         thresholds = th
         prescales = ps
 
@@ -130,7 +150,7 @@ if __name__ == "__main__":
     trig_bins, trig_rate, trig_err = compute_rate(hist_trig, norm_trig)
 
     # now create plot
-    plt.errorbar(hist_bins,hist_rate,yerr=hist_err,color="black",fmt="--", label='histogram')
+    plt.errorbar(hist_bins/factor,hist_rate,yerr=hist_err,color="black",fmt="--", label='histogram')
 
     for i in range(len(thresholds)):
         label = 'prescale: {}'.format(prescales[i]) \
@@ -139,16 +159,16 @@ if __name__ == "__main__":
         th_min = thresholds[i]
         th_max = thresholds[i+1] if i<len(thresholds)-1 else 1024
 
-        bins = trig_bins[th_min:th_max]
+        bins = trig_bins[th_min:th_max] / factor
+        # factor = 1 when units of bins is pixel value 
         rate = trig_rate[th_min:th_max]
         err  = trig_err[th_min:th_max]
-        
         plt.errorbar(bins,rate,yerr=err,fmt="o", label=label)
 
-    plt.xlabel("pixel value")
+    plt.xlabel(xlabel)
     plt.ylabel("rate per image")
     plt.semilogy()
-    plt.xlim(0,args.max)
+    plt.xlim(0,args.max/factor)
 
     plt.legend()
     plt.show()
