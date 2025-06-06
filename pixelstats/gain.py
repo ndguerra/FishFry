@@ -253,7 +253,7 @@ def make_plots(args, gain, intercept, means, variances):
 if __name__ == "__main__":
     example_text = '''examples:
 
-    ...'''
+    ./gain.py --calib ../calib --plot_all data/run_*.npz'''
     
     parser = argparse.ArgumentParser(description='Fit gain of each pixel from a series of runs at different exposures and light levels', epilog=example_text,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -264,8 +264,8 @@ if __name__ == "__main__":
     
     parser.add_argument('--commit', action='store_true', help='commit to .npz files in calibration directory')
     parser.add_argument('-s', '--spatial_plots', action="store_true", help="make spatial plots for gain, black level, R^2, and number of sample points")
-    parser.add_argument('-p', '--pix_plots', action='store_true', help='plot linear fits for 16 individual pixels')
-    parser.add_argument('-S', '--scatterplot', action='store_true', help='plot gain vs. black level for pixels')
+    parser.add_argument('-p', '--pix_plots', action='store_true', help='plot linear fits for 6 individual pixels')
+    parser.add_argument('-S', '--scatterplot', action='store_true', help='plot histogram of R^2 vs gain for pixels')
     parser.add_argument('--plot_all', action='store_true', help='')
     parser.add_argument('--sandbox', action="store_true", help="experimental code")
 

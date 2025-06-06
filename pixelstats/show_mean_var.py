@@ -69,6 +69,7 @@ def process(filename, args):
             keep &= np.logical_not(dark)
         if args.all_dark:
             keep &= dark
+        print(len(np.where(keep == True)[0]))
 
     if args.hot:
         max_mean = args.hot[0]
@@ -106,11 +107,13 @@ def process(filename, args):
         plt.imshow(cmean.reshape(height, width), 
                 cmap='seismic', vmax=args.max_mean)
         plt.colorbar()
+        plt.title("mean")
 
         plt.subplot(212)
         plt.imshow(cvari.reshape(height, width), #norm=LogNorm(), 
                 cmap='seismic', vmax=args.max_var)
         plt.colorbar()
+        plt.title("variance")
 
     # now do 2D histogram(s) for mean and variance 
     plt.figure(2, figsize=(10,8))         
@@ -194,6 +197,13 @@ if __name__ == "__main__":
     parser.add_argument('--calib', default='calib', help='directory with calibration files')
     parser.add_argument('--save_plot', action='store_true', help='Save plots in ./plots/ directory')
     args = parser.parse_args()
+
+
+    if args.sandbox:
+        print('========================================')
+        print('-- in sandbox development environment -- ')
+        print('========================================')
+        print()
 
     for filename in args.files:
         print("processing file:  ", filename)

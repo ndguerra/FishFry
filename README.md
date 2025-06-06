@@ -9,4 +9,4 @@ Pixel masking and lens-shade scaling can be accomplished through `pixelstats` an
 ./pixelstats/export.py --calib path/to/calib/dir/
 ```
 
-and copy the resulting `.cal` files to the base `FishStand/` directory on the Android device. To acquire lens-shading corrections, the scripts `pixelstats/gain.py`, `pixelstats/lens.py`, and `pixelstats/electrons.py` are run in series. To update a set of calibrations with additional hot pixels found during further `cosmics` runs, the output of `cosmics/hot.py` can be used in conjunction with `pixelstats/add_online_hotcells.py`. 
+and copy the resulting `.cal` files to the base `FishStand/` directory on the Android device. To acquire lens-shading corrections, the scripts `pixelstats/gain.py`, `pixelstats/lens_shading.py`, and `pixelstats/electrons.py` are run in series. To update a set of calibrations with additional hot pixels found during further `cosmics` runs, the output of `cosmics/hot.py` can be used in conjunction with `pixelstats/add_online_hotcells.py`. 

@@ -13,6 +13,7 @@ PATH            = None
 CHECK_EXPOSURE  = 0
 CHECK_MIN       = 0
 CHECK_MAX       = 0
+
 PIXELS          = 0
 SENS            = 0
 EXPOSURE        = 0
@@ -25,11 +26,12 @@ LASTPIXEL       = 0
 
 SUM             = np.array([])
 SSQ             = np.array([])
-MAX             = np.array([])
+MAXES           = np.array([])
 NUM             = np.array([])
+SECOND          = np.array([])
 
 def process(filename):
-    global PIXELS, SENS, EXPOSURE, SUM, SSQ, MAX, SECOND, NUM, WIDTH, HEIGHT, \
+    global PIXELS, SENS, EXPOSURE, SUM, SSQ, MAXES, NUM, WIDTH, HEIGHT, \
             SECTION, SAMPLESTEP, FIRSTPIXEL, LASTPIXEL
 
     if (CHECK_MAX > 0):
@@ -63,15 +65,14 @@ def process(filename):
         EXPOSURE    = exposure
         SUM         = np.zeros(PIXELS)
         SSQ         = np.zeros(PIXELS)
-        MAX         = np.zeros(PIXELS)
-        SECOND      = np.zeros(PIXELS)
-        NUM         = images
+        NUM         = np.zeros(PIXELS)
+        MAXES       = np.zeros([PIXELS,4])
         WIDTH       = width
         HEIGHT      = height
         SECTION     = pixel_start - pixel_end
         SAMPLESTEP  = sample_step
-        FIRSTPIXEL  = pixel_start
-        LASTPIXEL   = PIXELS
+        FIRSTPIXEL  = pixel_start #fix here
+        LASTPIXEL   = PIXELS      #fix here
 
 
     if exposure!=EXPOSURE or sens!=SENS:
@@ -79,10 +80,13 @@ def process(filename):
         unpack_header(filename, show=1)
         exit(0)
 
-    SUM[pixel_start:pixel_end] += arr_sum
-    SSQ[pixel_start:pixel_end] += arr_ssq
-    MAX[pixel_start:pixel_end] += arr_max
-    SECOND[pixel_start:pixel_end] += arr_second
+    SUM[pixel_start:pixel_end]    += arr_sum
+    SSQ[pixel_start:pixel_end]    += arr_ssq
+    NUM[pixel_start:pixel_end]    += images
+    MAXES[pixel_start:pixel_end,1] = arr_max 
+    MAXES[pixel_start:pixel_end,0] = arr_second 
+
+    MAXES = np.sort(MAXES,1) 
 
 
 def post():
@@ -91,8 +95,8 @@ def post():
             pixels=PIXELS, 
             sum=SUM, 
             ssq=SSQ, 
-            max=MAX, 
-            second=SECOND,
+            max=MAXES[:,3], 
+            second=MAXES[:,2],
             num=NUM, 
             exposure=EXPOSURE, 
             sens=SENS, 
