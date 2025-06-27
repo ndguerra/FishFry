@@ -20,23 +20,18 @@ VARIANCES  = []
 
 # pixel information
 total_pixels   = 0
-first_pixel    = 0
-last_pixel     = 0
 
 WIDTH   = 0
 HEIGHT  = 0 
 
 def process(filename, args):
-    global pixels, first_pixel, last_pixel, \
-           SUMS, SSQS, MEANS, VARIANCES, \
-           WIDTH, HEIGHT
+    global pixels, SUMS, SSQS, MEANS, \
+           VARIANCES, WIDTH, HEIGHT
     
     f = np.load(filename)
 
-    if not WIDTH:
+    if not WIDTH: # if WIDTH == 0:
         total_pixels  = f['pixels']
-        first_pixel   = f['firstpixel']
-        last_pixel    = f['lastpixel']
         WIDTH         = f['width']
         HEIGHT        = f['height']
 
@@ -175,79 +170,6 @@ def plot_hist(x, y, xlabel=None, ylabel=None, title=None):
     plt.colorbar(im, fraction=0.046, pad=0.04)
 
 
-
-### old
-def make_plots(args, gain, intercept, means, variances):
-    print('making plots (in progress)')
-    # find array of temporary max values, then find true maximums
-    temp_xmax = np.max(means, axis=1)
-    temp_ymax = np.max(variances,  axis=1)
-    
-    xmax = np.max(temp_xmax)
-    ymax = np.max(temp_ymax)
-    attributes('temp_xmax', temp_xmax)
-    attributes('temp_ymax', temp_ymax)
-
-    print('xmax: ', xmax)
-    print('ymax: ', ymax)
-
-    plt.close()
-    f, axes = plt.subplots(3, 3, sharex='col', sharey='row')
-    axes = axes.flatten()
-
-    nonzero = means != 0
-    attributes('nonzero', nonzero)
-    plotted = 0
-   
-    '''
-    Notes: 
-    1) gets stuck after running through first plot
-    2) perhaps just try to make one individual plot?
-    3) plot means and variances of just one pixel?
-    4) find the original s6 file that would work with Mike's previous gain script, 
-    then individually print out values so you can figure it out from there
-    '''
-
-    for i in nonzero:
-        mean = mean_stack[1][i]
-        var  = var_stack[1][i]
-        print('mean.shape: ', mean.shape)
-        print('mean.size: ', mean.size) 
-        print('var.shape: ', var.shape)
-        print('var.size: ', var.size) 
-        perm = np.argsort(mean)
-        mean = mean[perm]
-        var  = var[perm]
-
-        a = gain[i]
-        b = intercept[i]
-
-        attributes('a', a)
-        attributes('b', b)
-
-        #fx = np.array([0, xmax])
-        #attributes('fx', fx)
-        #fy = a + b
-
-        #axes[plotted].plot(fx,fy,"--k")
-
-        axes[plotted].plot(mean,var,"ob")
-        axes[plotted].set_xlim(0,xmax)        
-        axes[plotted].set_ylim(0,ymax)    
-        axes[plotted].xaxis.set_major_locator(ticker.LinearLocator(3))
-        axes[plotted].xaxis.set_minor_locator(ticker.LinearLocator(xmax/20+1))
-        axes[plotted].yaxis.set_major_locator(ticker.LinearLocator(3))
-        axes[plotted].yaxis.set_minor_locator(ticker.LinearLocator(ymax/100+1))
-        axes[plotted].text(0.3*xmax,0.8*ymax,"pixel "+str(first_pixel+i),horizontalalignment='center')
-
-        plotted += 1
-        print('plotted: ', plotted)
-        if (plotted == 1):
-            break
-    axes[3].set_ylabel("variance")
-    axes[7].set_xlabel("mean")
-    plt.savefig("plots/gain.pdf")
-    plt.show()
 
         
 if __name__ == "__main__":

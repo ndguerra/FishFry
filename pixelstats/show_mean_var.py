@@ -57,7 +57,8 @@ def process(filename, args):
     ypos = index // width
     rpos = np.sqrt((xpos - xpos.mean())**2 + (ypos - ypos.mean())**2)
     keep = np.ones(width*height, dtype=bool)
-
+    keep &= (num != 0)
+    
     if args.no_dark or args.all_dark:
         try:
             dark = load_dark(args.calib)
@@ -69,40 +70,24 @@ def process(filename, args):
             keep &= np.logical_not(dark)
         if args.all_dark:
             keep &= dark
-        print(len(np.where(keep == True)[0]))
-
-    if args.hot:
-        max_mean = args.hot[0]
-        max_vari  = args.hot[1]
-        print("saving hot pixel list from mean > ", max_mean, " or var > ", max_vari)
-        hot = ((cmean > max_mean) + (cvari > max_vari))
-        hot_list = index[hot]
-        hotfile = os.path.join(args.calib, "hot_online.npz")
-        print("saving  ", hot_list.size, "hot pixels to file ", hotfile)
-        print("total pixels in device:  ", width * height)
-        frac = hot_list.size / (width*height)
-        print("faction of hot pixels:  ", frac)
-
-        np.savez(hotfile, hot_list=hot_list)
-
-        keep &= (hot == False)
 
 
     # first show spatial distribution
-    plt.figure(1, figsize=(6,8))
 
     if args.by_radius:
+        plt.figure(2, figsize=(6,8))
         plt.subplot(211)
-        plt.hist2d(rpos, cmean,norm=LogNorm(),bins=[500,500],range=[[0,rpos.max()],[0,args.max_mean]], cmap='seismic')
+        plt.hist2d(rpos[keep], cmean[keep],norm=LogNorm(),bins=[500,500],range=[[0,rpos.max()],[0,args.max_mean]], cmap='seismic')
         plt.xlabel('radius')
         plt.ylabel('mean')
 
         plt.subplot(212)
-        plt.hist2d(rpos, cvari,norm=LogNorm(),bins=[500,500],range=[[0,rpos.max()],[0,args.max_var]], cmap='seismic')
+        plt.hist2d(rpos[keep], cvari[keep],norm=LogNorm(),bins=[500,500],range=[[0,rpos.max()],[0,args.max_var]], cmap='seismic')
         plt.xlabel('radius')
         plt.ylabel('variance')
 
-    else:
+    if args.spatial_plots:
+        plt.figure(3, figsize=(6,8))
         plt.subplot(211)
         plt.imshow(cmean.reshape(height, width), 
                 cmap='seismic', vmax=args.max_mean)
@@ -116,10 +101,9 @@ def process(filename, args):
         plt.title("variance")
 
     # now do 2D histogram(s) for mean and variance 
-    plt.figure(2, figsize=(10,8))         
-
+             
+    plt.figure(1, figsize=(10,8))
     if args.by_filter:
-
         # 4 subplots 
 
         for i in range(4):
@@ -134,7 +118,7 @@ def process(filename, args):
             plt.ylabel("variance")    
 
     else:
-        plt.hist2d(cmean,cvari,norm=LogNorm(),bins=[500,500],range=[[0,args.max_mean],[0,args.max_var]])
+        plt.hist2d(cmean[keep],cvari[keep],norm=LogNorm(),bins=[500,500],range=[[0,args.max_mean],[0,args.max_var]])
         plt.xlabel("mean")
         plt.ylabel("variance")
         
@@ -149,32 +133,30 @@ def process(filename, args):
         
     plt.show()
 
-    return
+    if args.hists:
+        h,bins = np.histogram(np.clip(cmean,0,10), bins=100, range=(0,10))
+        err = h**0.5
+        cbins = 0.5*(bins[:-1] + bins[1:])
+        plt.errorbar(cbins,h,yerr=err,color="black",fmt="o")
+        plt.ylim(1.0,1E7)
+        plt.ylabel("pixels")
+        plt.xlabel("mean")
+        plt.yscale('log')
+        plt.savefig("hmean.pdf")
+        plt.show()
 
-    h,bins = np.histogram(np.clip(cmean,0,10), bins=100, range=(0,10))
-    err = h**0.5
-    cbins = 0.5*(bins[:-1] + bins[1:])
-    plt.errorbar(cbins,h,yerr=err,color="black",fmt="o")
-    plt.ylim(1.0,1E7)
-    plt.ylabel("pixels")
-    plt.xlabel("mean")
-    plt.yscale('log')
-    plt.savefig("hmean.pdf")
-    plt.show()
-    
-    
-    h,bins = np.histogram(np.clip(cvari,0,100), bins=100, range=(0,100))
-    err = h**0.5
-    cbins = 0.5*(bins[:-1] + bins[1:])
-    plt.errorbar(cbins,h,yerr=err,color="black",fmt="o")
-    plt.ylim(1.0,1E7)
-    plt.ylabel("pixels")
-    plt.xlabel("variance")
-    plt.yscale('log')
-    plt.savefig("hvari.pdf")
-    plt.show()
+        h,bins = np.histogram(np.clip(cvari,0,100), bins=100, range=(0,100))
+        err = h**0.5
+        cbins = 0.5*(bins[:-1] + bins[1:])
+        plt.errorbar(cbins,h,yerr=err,color="black",fmt="o")
+        plt.ylim(1.0,1E7)
+        plt.ylabel("pixels")
+        plt.xlabel("variance")
+        plt.yscale('log')
+        plt.savefig("hvari.pdf")
+        plt.show()
 
-
+    return 
     
 if __name__ == "__main__":
     example_text = '''examples:
@@ -189,19 +171,25 @@ if __name__ == "__main__":
     parser.add_argument('--max_var',  type=float, default=3000,help="variance limit for plots")
     parser.add_argument('--max_mean', type=float, default=1023,help="mean limit for plots")
     parser.add_argument('--no_dark',action="store_true", help="drop dark pixels from all plots.")
+    # fix ^this 
     parser.add_argument('--all_dark',action="store_true", help="drop non-dark pixels from all plots.")
+    # fix ^this
     parser.add_argument('--by_filter',action="store_true", help="produce 4 plots for each corner of the 2x2 filter arrangement.")
-    parser.add_argument('--by_radius',action="store_true", help="produce 4 plots at three different locations from radius.")
+    # don't know why we have ^this 
+    parser.add_argument('--by_radius',action="store_true", help="make 2D histograms of mean or variance and radius")
+    # ^this isn't very insightful
     parser.add_argument('--gain',action="store_true", help="apply gain correction.")
-    parser.add_argument('--hot', nargs=2, metavar=("MEAN","VAR"), type=float,help="save list of pixels where mean > MEAN or var > VAR")
     parser.add_argument('--calib', default='calib', help='directory with calibration files')
     parser.add_argument('--save_plot', action='store_true', help='Save plots in ./plots/ directory')
+    parser.add_argument('--spatial_plots', action='store_true', help='show spatial plots of mean and variance')
+    parser.add_argument('--hists', action='store_true', help='show histograms of mean and variance')
     args = parser.parse_args()
+    
 
 
     if args.sandbox:
         print('========================================')
-        print('-- in sandbox development environment -- ')
+        print('-- in sandbox development environment --')
         print('========================================')
         print()
 

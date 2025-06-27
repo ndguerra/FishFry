@@ -6,6 +6,7 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 import unpack_hist as hist
 import unpack_trigger as trigger
 
@@ -19,7 +20,6 @@ def process_hist(filename, raw=False):
     prescale = hist.interpret_header(header, "hist_prescale")
         
     hist_tot = hist_cln.astype(float) if raw else hist_wgt.astype(float)
-    
     return hist_tot, images / prescale
 
 
@@ -34,18 +34,15 @@ def compute_rate(hist_tot, norm):
 def process_trig(filename,calibrator,verbose=False):
     # first unpack and display file contents
     header,px,py,highest,region,timestamp,millistamp,images,dropped,millis_images = trigger.unpack_all(filename)
-    
+    #^ this line takes soooooooo much time
     threshold,prescale = trigger.get_trigger(header) 
-    
     # sort thresholds from lowest to highest
     argsort = np.argsort(threshold)
     threshold = threshold[argsort]
     prescale = prescale[argsort]
-    
     nzb    = trigger.interpret_header(header, 'num_zerobias') 
     width  = trigger.interpret_header(header, 'width')
     height = trigger.interpret_header(header, 'height')
-
     if verbose:
         trigger.show_header(header)
         print("zero-bias:  ", np.sum(highest==0)/images)
@@ -94,6 +91,7 @@ if __name__ == "__main__":
     parser.add_argument('--max',  type=int, default=1024,help="maximum pixel value in rate plot (x-axis).")
     parser.add_argument('-v', '--verbose', action='store_true', help='enable verbose output')
     parser.add_argument('--electrons', action='store_true', help='plot in terms of number of electrons')
+    parser.add_argument('--efficiency', action='store_true', help='plot efficiency vs rate')
     
     args = parser.parse_args()
 
@@ -103,16 +101,16 @@ if __name__ == "__main__":
         try:
             parameters = lens["secant_parameters"]
             factor = parameters[1]
-            xlabel = "Threshold ($e^{-}$)"
+            xlabel = "Threshold (Number of electrons)"
         except:
             print("no value of K0 found in lens.npz, use --radial option when finding lens shading")
             print("making units of threshold pixel value")
             factor = 1
-            xlabel = "Threshold (pixel value)"
+            xlabel = "Threshold (Pixel value)"
 
     else:
         factor = 1
-        xlabel = "Threshold (pixel value)"
+        xlabel = "Threshold (Pixel value)"
         
 
     hist_tot = 0
@@ -126,7 +124,7 @@ if __name__ == "__main__":
         img_tot  += img
 
     hist_bins, hist_rate, hist_err = compute_rate(hist_tot, img_tot)
-
+    
     calibrator = Calibrator(args.calib) if not args.raw else None
     
     
@@ -139,6 +137,7 @@ if __name__ == "__main__":
         if args.verbose:
             print("processing trigger file:", filename)
         h, norm, th, ps = process_trig(filename, calibrator, args.verbose)
+        #^ this take a lot of time, why does it take so much time? 
         if not thresholds is None and not np.all(thresholds == th):
             raise ValueError('Non-matching triggers found.')
         thresholds = th
@@ -148,11 +147,36 @@ if __name__ == "__main__":
         norm_trig += norm
 
     trig_bins, trig_rate, trig_err = compute_rate(hist_trig, norm_trig)
-
+    
+    real_rate = np.cumsum(hist_rate[::-1])[::-1]
+    real_err  = np.cumsum(hist_err[::-1])[::-1]
+    
     # now create plot
-    plt.errorbar(hist_bins/factor,hist_rate,yerr=hist_err,color="black",fmt="--", label='histogram')
+    #print(np.sum(hist_rate))
+    #plt.errorbar(hist_bins/factor,real_rate,yerr=hist_err,color="black",fmt="--", label='histogram', zorder=0) # rates as a function of pixel value
+    #plt.plot(hist_bins/factor, real_rate, 'r')
+    #plt.fill_between(hist_bins/factor,real_rate+real_err,real_rate-real_err, color='r', alpha = .5) # rates as a function of threshold
 
-    for i in range(len(thresholds)):
+
+    real_bins = np.array([])
+    real_rate = np.array([])
+    real_err  = np.array([])
+
+    #trig_rate[762] = 0
+    #trig_err[762] = 0
+    #print(trig_rate[805])
+    #trig_rate[805] = 0
+    #trig_err[805] = 0
+    
+    
+    value1 = (trig_bins > 370)
+    value2 = (trig_rate > 0.01)
+    value3 = value1 & value2
+    trig_rate[value3] = 0
+    trig_err[value3] = 0
+    print(np.where(value3))
+    
+    for i in range(len(thresholds)-1,0,-1): #! backwards
         label = 'prescale: {}'.format(prescales[i]) \
                 if thresholds[i] else 'zero-bias'
 
@@ -160,17 +184,76 @@ if __name__ == "__main__":
         th_max = thresholds[i+1] if i<len(thresholds)-1 else 1024
 
         bins = trig_bins[th_min:th_max] / factor
-        # factor = 1 when units of bins is pixel value 
+        # factor equals 1 when units of bins is pixel value 
         rate = trig_rate[th_min:th_max]
         err  = trig_err[th_min:th_max]
-        plt.errorbar(bins,rate,yerr=err,fmt="o", label=label)
+
+        
+        real_bins = np.append(bins, real_bins)
+        count = real_rate[0] if np.size(real_rate) else 0
+        real_rate = np.append(np.cumsum(rate[::-1])[::-1] + count, real_rate)
+        real_err  = np.append(np.cumsum(err[::-1])[::-1], real_err)
+    
+        #plt.errorbar(bins,rate,yerr=err,fmt="o", label=label, zorder=0) # first plot
+    plt.plot(real_bins, real_rate, 'b-')
+    plt.fill_between(real_bins,real_rate+real_err,real_rate-real_err, color='b', alpha = .5, label = "Rate of triggers")
 
     plt.xlabel(xlabel)
     plt.ylabel("rate per image")
     plt.semilogy()
     plt.xlim(0,args.max/factor)
 
+    crm_rate = 0.00307/2 #rate per second/2 frames per second
+    crm_err  = 0.00013/2 
+    # cosmic ray muon rate for samsung galxy s6 camera
+    # flux taken from A. Dragic, et al. 2007
+    # Measurement of cosmic ray muon flux in the Belgrade ground level and underground laboratories
+
+    plt.plot(real_bins-4, np.ones(np.size(real_bins))*crm_rate, 'k', label="Muon Rate", zorder=1)
+    #plt.fill_between(hist_bins/factor, crm_rate-crm_err, crm_rate+crm_err) 
+    
     plt.legend()
     plt.show()
+
+    plt.close()
+
+    if args.efficiency:
+        x = np.array([43, 50, 100])
+        y = np.array([.74, .72, .47])
+        yerr = np.array([.07, .06, .04])
+        #^ taken from mikes paper on efficiency
+
+        def lin_func(x, m, b):
+            return m*x+b
+
+        
+        
+        a,cov=curve_fit(lin_func,x,y,sigma=yerr,absolute_sigma=True)
+
+        real_bins = a[0]*real_bins + a[1]
+        
+        plt.plot(real_bins, real_rate, 'm', label = "Rate of Triggers")
+        plt.fill_between(real_bins,real_rate+real_err,real_rate-real_err, color='m', alpha = .5)
+ 
+        x_arr = np.linspace(.4, .8)
+        mdr_arr = x_arr*crm_rate
+        plt.plot(x_arr, mdr_arr, 'k', label="Muon Detection Rate")
+        #plt.fill_between(x_arr, x_arr/(crm_rate+crm_err), x_arr/(crm_rate-crm_err),alpha = .5)
+
+        x1 = real_rate
+        y1 = a[0]*real_bins+a[1]
+        y2 = cov[0,0]*real_bins+cov[1,1]
+        #plt.plot(x1, y1, 'm')
+        #plt.fill_between(x1,y1+y2,y1-y2, color='m', alpha = .5)
+
+        #plt.errorbar(real_rate, a[0]*real_bins+a[1], yerr=cov[0,0]*real_bins+cov[1,1],\
+        #             xerr=real_err, fmt='bo', label="Data points")
+        plt.xlim(.45,.75)
+        plt.ylim(0.0001,1)
+        plt.semilogy()
+        plt.xlabel('efficiency')
+        plt.ylabel('rate per image')
+        plt.legend()
+        plt.show()
 
 

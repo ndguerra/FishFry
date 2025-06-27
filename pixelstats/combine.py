@@ -19,16 +19,11 @@ SENS            = 0
 EXPOSURE        = 0
 WIDTH           = 0
 HEIGHT          = 0
-SECTION         = 0
-SAMPLESTEP      = 0
-FIRSTPIXEL      = 0
-LASTPIXEL       = 0
 
 SUM             = np.array([])
 SSQ             = np.array([])
 MAXES           = np.array([])
 NUM             = np.array([])
-SECOND          = np.array([])
 
 def process(filename):
     global PIXELS, SENS, EXPOSURE, SUM, SSQ, MAXES, NUM, WIDTH, HEIGHT, \
@@ -47,9 +42,6 @@ def process(filename):
     width        = interpret_header(header, "width")
     height       = interpret_header(header, "height")
     images       = interpret_header(header, "images")
-    pixel_start  = interpret_header(header, "pixel_start")
-    pixel_end    = interpret_header(header, "pixel_end")
-    sample_step  = interpret_header(header, "sample_step")
     
     if CHECK_EXPOSURE > 0 and exposure != CHECK_EXPOSURE:
         #print "(skipping file ", filename, " with exposure ", exposure, ")"
@@ -69,10 +61,6 @@ def process(filename):
         MAXES       = np.zeros([PIXELS,4])
         WIDTH       = width
         HEIGHT      = height
-        SECTION     = pixel_start - pixel_end
-        SAMPLESTEP  = sample_step
-        FIRSTPIXEL  = pixel_start #fix here
-        LASTPIXEL   = PIXELS      #fix here
 
 
     if exposure!=EXPOSURE or sens!=SENS:
@@ -94,18 +82,12 @@ def post():
     np.savez(PATH, 
             pixels=PIXELS, 
             sum=SUM, 
-            ssq=SSQ, 
-            max=MAXES[:,3], 
+            ssq=SSQ,  
             second=MAXES[:,2],
-            num=NUM, 
-            exposure=EXPOSURE, 
-            sens=SENS, 
+            num=NUM,  
             width=WIDTH, 
-            height=HEIGHT, 
-            section=SECTION, 
-            samplestep=SAMPLESTEP, 
-            firstpixel=FIRSTPIXEL, 
-            lastpixel=LASTPIXEL)
+            height=HEIGHT 
+            )
 
 if __name__ == "__main__":
     example_text = '''example:

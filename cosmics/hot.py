@@ -76,11 +76,11 @@ if __name__ == "__main__":
     print('total pixels:', total_pixels)
     occ = np.zeros(total_pixels)
 
-    end = "\n" if args.verbose else "\r"
+    end = "\n"# if args.verbose else "\r"
     for filename in args.files:
         print("processing file:  ", filename, end=end)
         if filename.endswith('.dat'):
-            occ += process_npz(filename, 
+            occ += process_dat(filename, 
                 calibrator, 
                 args.thresh, 
                 verbose=args.verbose)
