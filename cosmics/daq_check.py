@@ -53,7 +53,7 @@ def compute_rate(hist_tot, norm):
 
     return bins, rate, err
 
-def process_trig(filename,calibrator,verbose=False):
+def process_trig(filename,calibrator,verbose=False, hot=False):
     # first unpack and display file contents
     header,px,py,highest,region,timestamp,millistamp,images,dropped,millis_images = trigger.unpack_all(filename)
     #^ this line takes a lot of time if num of images per file is large
@@ -79,7 +79,23 @@ def process_trig(filename,calibrator,verbose=False):
     rcenter = region[:, region.shape[1]//2]
     
     # remove zero bias triggers above lowest threshold for easy plotting
-    keep = (highest > 0) | (rcenter < min(threshold))
+    keep1 = (highest > 0) | (rcenter < min(threshold))
+
+    # remove hot pixels
+    if hot:
+        f_name = os.path.join(args.calib, 'hot_offline.npz')
+        f_hot  = np.load(f_name)
+        hot_pixels = f_hot['hot_list']
+        pixels = px + 5328 * py
+        keep2 = np.logical_not(np.isin(pixels, hot_pixels))
+    else:
+        keep2 = True
+
+    keep = keep1 & keep2
+    print(np.size(keep2))
+    print(np.sum(keep2))
+    
+    
     px = px[keep]
     py = py[keep]
     highest = highest[keep]
@@ -114,6 +130,7 @@ if __name__ == "__main__":
     parser.add_argument('-v', '--verbose', action='store_true', help='enable verbose output')
     parser.add_argument('--electrons', action='store_true', help='plot in terms of number of electrons')
     parser.add_argument('--three', action='store_true', help='Plot uncalibrated, maksed, and calibrated+masked rates')
+    parser.add_argument('--hot', action='store_true', help='ignore pixels in calib/hot_offline.npz')
     
     args = parser.parse_args()
 
@@ -161,7 +178,7 @@ if __name__ == "__main__":
     for filename in args.trig:
         if args.verbose:
             print("processing trigger file:", filename)
-        h, norm, th, ps = process_trig(filename, calibrator, args.verbose)
+        h, norm, th, ps = process_trig(filename, calibrator, args.verbose, args.hot)
         if not thresholds is None and not np.all(thresholds == th):
             raise ValueError('Non-matching triggers found.')
         thresholds = th
@@ -176,8 +193,8 @@ if __name__ == "__main__":
     # now create plot
     plt.errorbar(hist_bins/factor,hist_rate,yerr=hist_err,color="black",fmt="--", label='histogram')
 
-    plt.errorbar(trig_bins/factor,trig_rate,yerr=trig_err,fmt="o")
-    '''
+    #plt.errorbar(trig_bins/factor,trig_rate,yerr=trig_err,fmt="o")
+    
     for i in range(len(thresholds)):
         label = 'prescale: {}'.format(prescales[i]) \
                 if thresholds[i] else 'zero-bias'
@@ -189,7 +206,7 @@ if __name__ == "__main__":
         rate = trig_rate[th_min:th_max]
         err  = trig_err[th_min:th_max]
         plt.errorbar(bins/factor,rate,yerr=err,fmt="o", label=label)
-    '''
+    
     plt.xlabel(xlabel)
     plt.ylabel("rate per image")
     plt.semilogy()
