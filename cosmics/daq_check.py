@@ -92,9 +92,6 @@ def process_trig(filename,calibrator,verbose=False, hot=False):
         keep2 = True
 
     keep = keep1 & keep2
-    print(np.size(keep2))
-    print(np.sum(keep2))
-    
     
     px = px[keep]
     py = py[keep]

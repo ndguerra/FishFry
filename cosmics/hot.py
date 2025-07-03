@@ -10,15 +10,25 @@ import matplotlib.pyplot as plt
 #import ROOT as r
 
 from unpack_trigger import unpack_all, show_header, interpret_header
-from calibrate import Calibrator 
+from calibrate import Calibrator
+
+width = 0
 
 
 def process_dat(filename, calibrator, thresh=0, verbose=False):
+    global width
     header,px,py,highest,region,timestamp,millistamp,images,dropped,millis_images = unpack_all(filename)
+
+    if not width: # dont use files with different widths
+        width = interpret_header(header, "width")
+    
     if verbose:
         show_header(header)
 
-    region = calibrator.calibrate_region(px,py,region,header)
+    if calibrator:
+        region = calibrator.calibrate_region(px,py,region,header)
+
+
     icenter = region.shape[1] // 2
 
     # if thresh is set, use it to count occupancies
@@ -28,8 +38,9 @@ def process_dat(filename, calibrator, thresh=0, verbose=False):
         idx_regions &= (region[:, icenter] >= thresh)
 
     # return flattened indices with hits
-    idx_occ = py[idx_regions]*calibrator.width + px[idx_regions]
+    idx_occ = py[idx_regions]*width + px[idx_regions]
 
+    
     return np.histogram(idx_occ, bins=np.arange(total_pixels+1))[0]
 
  
@@ -66,8 +77,9 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot', action='store_true', help='plot pixel occupancies')
     parser.add_argument('-s', '--small', action='store_true', help='Decrease plot size')
     parser.add_argument('-c', '--commit',action="store_true", help="save hot pixels to file.")
-    parser.add_argument('-o', '--offline', action='store_true', help='include offline hotcels')
+    parser.add_argument('-o', '--offline', action='store_true', help='add to the offline hot pixels (instead of overwriting)')
     parser.add_argument('-v', '--verbose', action="store_true", help="display file summary")
+    parser.add_argument('-r', '--raw', action="store_true", help="Use raw values")
 
     args = parser.parse_args()
 
@@ -75,6 +87,9 @@ if __name__ == "__main__":
     total_pixels = calibrator.width * calibrator.height
     print('total pixels:', total_pixels)
     occ = np.zeros(total_pixels)
+
+    if args.raw:
+        calibrator = None
 
     end = "\n"# if args.verbose else "\r"
     for filename in args.files:
